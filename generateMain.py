@@ -100,7 +100,7 @@ def checkForChildNodeChange(manipulate_node,component_lib_file_root,source_paren
     for node in dest_parent_node.childNodes:
         if node.hasAttribute('id'):
             last_child = node
-    ref_node = None
+    ref_node_list = []
     for dest_node in dest_child_node_list:
         if not (dest_node.getAttribute('id') in id_set):
             if dest_node.isSameNode(last_child):
@@ -114,7 +114,8 @@ def checkForChildNodeChange(manipulate_node,component_lib_file_root,source_paren
                                              component_lib_file_root,dest_node.nodeName,'id',dest_node.getAttribute('id'))
                     new_node = copy.deepcopy(dest_node)
                     component_lib_file_root.appendChild(new_node)
-                elif findSameLevelChildWithId(dest_node,ref_node) != None:
+                elif findSameLevelChildWithId(dest_node,ref_node_list) != None:
+                    ref_node = ref_node_list.pop()
                     if debug_flag >= DebugFlag.FINE: print comment
                     addCommentNode(manipulate_node,comment)
                     addNodeIdsToSet(id_set,dest_node)
@@ -291,19 +292,22 @@ initProcess()
 '''to do
 If Experimental Feature working fine then need to optimize checkChildNodeChange() Function as there is lot of redundancy
 2. push all the warnings into a single file along with those components
-
-5.
+3.
 
 debug level
 support for only id change
 check for possible duplicate id after insert
 try to validate xml
-not just compared id also the tag
 
 at the moment c:set and jsp:root are the only contnious non-id elements in tree.
-'''
 
-'''Done:---
+Add below function for easy comparison of before and after upgrade script run
+ def writeXml(path):
+	dom = parse(path)
+	fl = open('test.jsff','w+')
+	fl.write(dom.toxml(encoding='UTF-8'))
+	f1.close()
+Done:---
 4. creating upgradeMetaRegistry
 3. writing the generated scripts in newly created updatemeta and componentLib files
 In matchAndEliminateNode() Add support to check if a node without id has similar attributes using sets and subsets, even if I attribute defers we need to generate script for removing and re-inserting parent node

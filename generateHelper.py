@@ -30,7 +30,9 @@ def printNodeList(message,node_list):# prints message + all the nodes in nodeLis
 
 def printNode(node,print_parent=1):
     comment = ''
-    if node.nodeType != Node.ELEMENT_NODE:
+    if not node:
+        return 'None'
+    elif node.nodeType != Node.ELEMENT_NODE:
         comment = 'Node :Text Node'
     elif node.hasAttribute('id'):
         comment = node.nodeName+' id:'+node.getAttribute('id')
@@ -48,11 +50,11 @@ def printNode(node,print_parent=1):
 
     return comment
 
-def findSameLevelChildWithId(node,ref_node):
+def findSameLevelChildWithId(node,ref_node_list):
     node_list = node.parentNode.childNodes
     for nod in node_list:
         if nod.hasAttribute('id') and (not nod.isSameNode(node)):
-            ref_node = nod
+            ref_node_list.append(nod)
             return nod
     return None
 
