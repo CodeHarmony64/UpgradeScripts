@@ -103,7 +103,7 @@ def checkForChildNodeChange(manipulate_node,component_lib_file_root,source_paren
     ref_node = None
     for dest_node in dest_child_node_list:
         if not (dest_node.getAttribute('id') in id_set):
-            if not dest_node.isSameNode(last_child):
+            if dest_node.isSameNode(last_child):
                 #what if parent node is node without id???
                 comment = 'Component ADDED: '+printNode(dest_node)
                 if dest_parent_node.hasAttribute('id'):
