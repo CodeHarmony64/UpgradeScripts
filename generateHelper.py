@@ -25,7 +25,7 @@ def appendList(st,lst):#Adds all the items of the list to an existing set
 def printNodeList(message,node_list):# prints message + all the nodes in nodeList
     print message,
     for node in node_list:
-        print printNode(node)+'\t\t\t',
+        print printNode(node,0)+'\t\t\t',
     print(' ')
 
 def printNode(node,print_parent=1):
@@ -47,8 +47,6 @@ def printNode(node,print_parent=1):
         comment = comment+' Parent: '+printNode(node.parentNode,0)
 
     return comment
-
-
 
 def findSameLevelChildWithId(node,ref_node):
     node_list = node.parentNode.childNodes
@@ -81,6 +79,14 @@ def cleanDOM(root):
 def addCommentNode(root,data):
     doc = root.ownerDocument
     #root.appendChild(doc.createComment(data))
+
+def addNodeIdsToSet(id_set,node):
+    if not node or node.nodeType != Node.ELEMENT_NODE:
+        return
+    if node.hasAttribute('id'):
+        id_set.add(node.getAttribute('id'))
+    for nod in node.childNodes:
+        addNodeIdsToSet(id_set,nod)
 
 def getManipulateUpgradeMetaNode(path):
     location,file_name = os.path.split(path)

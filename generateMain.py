@@ -14,6 +14,7 @@ debug_flag = 0
 curr_source_file = ''
 curr_dest_file = ''
 warnings = []
+id_set = set() #Need to clear after each file script generation
 
 class DebugFlag:
     FINE = 1
@@ -23,13 +24,17 @@ class DebugFlag:
 WARN = '\n##### Warning: NOT GENERATING SCRIPT FOR ABOVE, NOT SUPPORTED  #####\n'
 
 def checkForAttributeChange(manipulate_node,source_node,dest_node):
-    global debug_flag
+    global debug_flag,id_set
     if debug_flag >= DebugFlag.FINER: print'\ncheckForAttributeChange():Enter '+printNode(source_node)
-    if source_node.attributes.items() == dest_node.attributes.items(): #Check if both nodes have same set of key-value pairs then no need to compare or generate scritps
+    if set(source_node.attributes.items()) == set(dest_node.attributes.items()): #Check if both nodes have same set of key-value pairs then no need to compare or generate scritps
         if debug_flag >= DebugFlag.FINER:
             print printNode(source_node)+' : No Attribute Changed'
             print'checkForAttributeChange():Exit '+printNode(source_node)+'\n'
             return
+    if (source_node.hasAttribute('id') and source_node.getAttribute('id') in id_set) or (source_node.parentNode.nodeType == Node.ELEMENT_NODE and source_node.parentNode.hasAttribute('id') and source_node.parentNode.getAttribute('id') in id_set):
+        if debug_flag >= DebugFlag.FINE:
+            print 'Not required script for Attribute Change in '+printNode(source_node)+' this or parent node is getting inserted'
+        return
     attr_set = set(list(source_node.attributes.keys()) + list(dest_node.attributes.keys()))
     if debug_flag >= DebugFlag.FINER : print printNode(source_node)+'  AttributeList: ',attr_set
     while(attr_set):
@@ -60,20 +65,18 @@ def checkForAttributeChange(manipulate_node,source_node,dest_node):
 
 
 def checkForChildNodeChange(manipulate_node,component_lib_file_root,source_parent_node,dest_parent_node,source_child_node_list,dest_child_node_list):
-    global debug_flag,curr_dest_file,warnings,WARN
+    global debug_flag,curr_dest_file,warnings,WARN,id_set
     if debug_flag >= DebugFlag.FINER: print '\ncheckForChildNodeChange():Enter '+printNode(source_parent_node)
+    if (source_parent_node.hasAttribute('id') and source_parent_node.getAttribute('id') in id_set) or (source_parent_node.parentNode.nodeType == Node.ELEMENT_NODE and source_parent_node.parentNode.hasAttribute('id') and source_parent_node.parentNode.getAttribute('id') in id_set):
+        if debug_flag >= DebugFlag.FINE:
+            print 'Not required script for Node Change in '+printNode(source_parent_node)+' this or parent node is getting inserted'
+        return
     for source_node in source_child_node_list:
         if source_node.hasAttribute('id'):
             comment = 'Component removed: '+printNode(source_node)
             if debug_flag >= DebugFlag.FINE: print comment
             addCommentNode(manipulate_node,comment)
             generaterRemoveNodeScript(manipulate_node,source_node.nodeName,'id',source_node.getAttribute('id'))
-        elif source_node.nodeName == 'f:facet' and source_node.hasChildNodes():
-            comment = '\nComponent Removed: '+printNode(source_node)+'\nElement without id : Experimental Feature. Trying to remove and re-insert Parent'+WARN
-            print comment
-            warnings.append(comment)
-            tryRemoveAndInsertThisNode(manipulate_node,component_lib_file_root,source_node.parentNode)
-            break #need to replace it with break.no need to continue in this as the whole parent node is going to get replaced
         else:
             #to handle the removal of components without id and wihtout any child eg. af:setActionListener
             comment =  '\nComponent Removed: '+printNode(source_node)+'\nElement without id : Experimental Feature. Trying to remove and re-insert Parent'+WARN
@@ -83,20 +86,15 @@ def checkForChildNodeChange(manipulate_node,component_lib_file_root,source_paren
             break #need to replace it with break.no need to continue in this as the whole parent node is going to get replaced
 
     for dest_node in dest_child_node_list:
-        if dest_node.nodeName == 'f:facet' and dest_node.hasChildNodes:
-            # this will require replacing the whole parent component, no point in continuing
-            comment = '\nCompoenent ADDED: '+printNode(dest_node)+'\nComponent without id : Experimental Feature, Trying to remove and re-insert parent node'+'\nWill not check any child node of this parent as whole parent will get re-inserted'+WARN
-            print comment
-            warnings.append(comment)
-            tryRemoveAndInsertThisNode(manipulate_node,component_lib_file_root,dest_node.parentNode)
-            return
-        elif (not dest_node.hasAttribute('id')): #and dest_node.hasChildNodes:
+        if (not dest_node.hasAttribute('id') and dest_parent_node.hasAttribute('id')): #and dest_node.hasChildNodes:
             # this will require replacing the whole parent component, no point in continuing, only supporint facet as non-id component.
             comment =  '\nComponent ADDED: '+printNode(dest_node)+'\nComponent without id : Experimental Feature, Trying to remove and re-insert parent node'+'\nWill not check any child node of this parent as whole parent will get re-inserted'+WARN
             print comment
             warnings.append(comment)
             tryRemoveAndInsertThisNode(manipulate_node,component_lib_file_root,dest_node.parentNode)
             return
+        elif not dest_node.hasAttribute('id'):#can show an error message and move on instead of exiting
+            exitScript(9)
 
     last_child = None
     for node in dest_parent_node.childNodes:
@@ -104,50 +102,57 @@ def checkForChildNodeChange(manipulate_node,component_lib_file_root,source_paren
             last_child = node
     ref_node = None
     for dest_node in dest_child_node_list:
-        if dest_node.isSameNode(last_child):
-            #what if parent node is node without id???
-            comment = 'Component ADDED: '+printNode(dest_node)
-            if dest_parent_node.hasAttribute('id'):
-                if debug_flag >= DebugFlag.FINE: print comment
-                addCommentNode(manipulate_node,comment)
-                generateInsertNodeScript(curr_dest_file,manipulate_node,'child',dest_parent_node.nodeName,'id',dest_parent_node.getAttribute('id'),
-                                         component_lib_file_root,dest_node.nodeName,'id',dest_node.getAttribute('id'))
-                new_node = copy.deepcopy(dest_node)
-                component_lib_file_root.appendChild(new_node)
-            elif findSameLevelChildWithId(dest_node,ref_node) != None:
-                if debug_flag >= DebugFlag.FINE: print comment
-                addCommentNode(manipulate_node,comment)
-                generateInsertNodeScript(curr_dest_file,manipulate_node,'end',ref_node.nodeName,'id',ref_node.getAttribute('id'),component_lib_file_root,dest_node.nodeName,'id',dest_node.getAttribute('id'))
-                new_node = copy.deepcopy(dest_node)
-                component_lib_file_root.appendChild(new_node)
-            else:
-                comment = '\n'+comment+'\nCase: Parent doesn\'t have id, parent doesn\'t have any children for END referece node, need to remove and re-insert parentOfParentNode'+WARN
-                print comment +'\nTrying : Experimental Feature'
-                warnings.append(comment)
-                try:
-                    tryRemoveAndInsertThisNode(manipulate_node,component_lib_file_root,dest_node.parentNode.parentNode)
-                except Exception:
-                    print "Try Failed"
-                # handle case when parent doesn't have id + no child node with id, need to remove and re-insert parent of parent
-        else:
-            next_sibling = findNextSiblingWithId(dest_node)
-            if not next_sibling:
-                comment = 'checkForNodeChange: Should Never Occur Node: '+printNode(dest_node)
-                print comment
-                warnings.append(comment)
-            else:
+        if not (dest_node.getAttribute('id') in id_set):
+            if not dest_node.isSameNode(last_child):
+                #what if parent node is node without id???
                 comment = 'Component ADDED: '+printNode(dest_node)
-                if debug_flag >= DebugFlag.FINE: print comment
-                addCommentNode(manipulate_node,comment)
-                generateInsertNodeScript(curr_dest_file,manipulate_node,'before',next_sibling.nodeName,'id',next_sibling.getAttribute('id'),component_lib_file_root,dest_node.nodeName,'id',dest_node.getAttribute('id'))
-                new_node = copy.deepcopy(dest_node)
-                component_lib_file_root.appendChild(new_node)
+                if dest_parent_node.hasAttribute('id'):
+                    if debug_flag >= DebugFlag.FINE: print comment
+                    addCommentNode(manipulate_node,comment)
+                    addNodeIdsToSet(id_set,dest_node)
+                    generateInsertNodeScript(curr_dest_file,manipulate_node,'child',dest_parent_node.nodeName,'id',dest_parent_node.getAttribute('id'),
+                                             component_lib_file_root,dest_node.nodeName,'id',dest_node.getAttribute('id'))
+                    new_node = copy.deepcopy(dest_node)
+                    component_lib_file_root.appendChild(new_node)
+                elif findSameLevelChildWithId(dest_node,ref_node) != None:
+                    if debug_flag >= DebugFlag.FINE: print comment
+                    addCommentNode(manipulate_node,comment)
+                    addNodeIdsToSet(id_set,dest_node)
+                    generateInsertNodeScript(curr_dest_file,manipulate_node,'end',ref_node.nodeName,'id',ref_node.getAttribute('id'),component_lib_file_root,dest_node.nodeName,'id',dest_node.getAttribute('id'))
+                    new_node = copy.deepcopy(dest_node)
+                    component_lib_file_root.appendChild(new_node)
+                else:
+                    comment = '\n'+comment+'\nCase: Parent doesn\'t have id, parent doesn\'t have any children for END referece node, need to remove and re-insert parentOfParentNode'+WARN
+                    print comment +'\nTrying : Experimental Feature'
+                    warnings.append(comment)
+                    try:
+                        tryRemoveAndInsertThisNode(manipulate_node,component_lib_file_root,dest_node.parentNode.parentNode)
+                    except Exception:
+                        print "Try Failed"
+                    # handle case when parent doesn't have id + no child node with id, need to remove and re-insert parent of parent
+            else:
+                next_sibling = findNextSiblingWithId(dest_node)
+                if not next_sibling:
+                    comment = 'checkForNodeChange: Should Never Occur Node: '+printNode(dest_node)
+                    print comment
+                    warnings.append(comment)
+                else:
+                    comment = 'Component ADDED: '+printNode(dest_node)
+                    if debug_flag >= DebugFlag.FINE: print comment
+                    addCommentNode(manipulate_node,comment)
+                    addNodeIdsToSet(id_set,dest_node)
+                    generateInsertNodeScript(curr_dest_file,manipulate_node,'before',next_sibling.nodeName,'id',next_sibling.getAttribute('id'),component_lib_file_root,dest_node.nodeName,'id',dest_node.getAttribute('id'))
+                    new_node = copy.deepcopy(dest_node)
+                    component_lib_file_root.appendChild(new_node)
     if debug_flag >= DebugFlag.FINER: print 'checkForChildNodeChange():Exit '+printNode(source_parent_node),'\n'
 
 
 def tryRemoveAndInsertThisNode(manipulate_node,component_lib_file_root,insert_node):#Experimental feature : Should generate warning
-    global curr_dest_file,debug_flag
+    global curr_dest_file,debug_flag,id_set
     if debug_flag >= DebugFlag.FINER: print 'tryRemoveAndInsertThisNode():Enter '+printNode(insert_node)
+    if insert_node.getAttribute('id') in id_set:
+        print 'Node already inserted as part of another node '+printNode(insert_node)
+        return
     if not (insert_node.nodeType == Node.ELEMENT_NODE and insert_node.parentNode.nodeType == Node.ELEMENT_NODE and insert_node.parentNode.hasAttribute('id') ):#c:set child, jsp:root parent both without ids
         print "Experimental : tryRemoveAndInsertThisNode : Failed\t\t"
         warnings.append("Experimental : tryRemoveAndInsertThisNode : Failed\t\t")
@@ -157,6 +162,7 @@ def tryRemoveAndInsertThisNode(manipulate_node,component_lib_file_root,insert_no
     comment = 'tryRemoveAndInsertThisNode : Component ADDED: '+printNode(insert_node)
     if debug_flag >= DebugFlag.FINE: print comment
     addCommentNode(manipulate_node,comment)
+    addNodeIdsToSet(id_set,insert_node)
     if not next_sibling:
         generateInsertNodeScript(curr_dest_file,manipulate_node,'child',insert_node.parentNode.nodeName,'id',insert_node.parentNode.getAttribute('id'),component_lib_file_root,insert_node.nodeName,'id',insert_node.getAttribute('id'))
     else:
@@ -197,7 +203,11 @@ def matchAndEliminateNode(to_visit,source_node_list,dest_node_list):
 
 
 def modifiedDFS(to_visit,manipulate_node,component_lib_file_root,meta_registry_node):
-    global warnings,curr_dest_file,script_gen_path
+    global warnings,curr_dest_file,script_gen_path,id_set
+    file_name = os.path.basename(curr_dest_file)
+    index = string.find(file_name,'_Layout')
+    file_name = file_name[:index]+'.jsff'
+    print '\n\n\n************ Modifying : '+file_name+' ********************'
     while(to_visit):
         if debug_flag >= DebugFlag.FINER: print '\nto_visit[]: ',to_visit
         source_parent_node,dest_parent_node = to_visit.pop(0)
@@ -211,21 +221,19 @@ def modifiedDFS(to_visit,manipulate_node,component_lib_file_root,meta_registry_n
         checkForChildNodeChange(manipulate_node,component_lib_file_root,source_parent_node,dest_parent_node,source_child_node_list,dest_child_node_list)
 #    doc = manipulate_node.ownerDocument
 #    component_doc = component_lib_file_root.ownerDocument
-    file_name = os.path.basename(curr_dest_file)
-    index = string.find(file_name,'_Layout')
-    file_name = file_name[:index]
-    print ('\n++++++++++++++++++++  WARNINGS : '+file_name+' +++++++++++++++++++++++')
-    for warn in warnings:
-        print warn
+#    file_name = os.path.basename(curr_dest_file)
+#    index = string.find(file_name,'_Layout')
+#    file_name = file_name[:index]
+#    print ('\n++++++++++++++++++++  WARNINGS : '+file_name+' +++++++++++++++++++++++')
+#    for warn in warnings:
+#        print warn
 #    print("\n\n+++++++++++++++++Upgrade Script++++++++++++++++++++")
 #    print(doc.toprettyxml())
 #    print("\n+++++++++++++++++ComponentLib File++++++++++++++++++++")
 #    print(component_doc.toprettyxml())
     if manipulate_node.hasChildNodes():
         writeScriptsAndModifyRegistry(script_gen_path,curr_dest_file,manipulate_node.ownerDocument,component_lib_file_root.ownerDocument,meta_registry_node)
-
-
-
+    id_set.clear()
     return
 
 def initProcess():
