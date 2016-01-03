@@ -126,9 +126,10 @@ def getUpgradeMetaRegistryNode(description = "ActivityManagementAutomated"):
 
 def generateAttributeScript(manipulate, operation, tagName, keyAttr, keyVal, name, value):
     last_modify = manipulate.lastChild
+    flag = 0
+    doc = manipulate.ownerDocument
     if last_modify and last_modify.nodeType == Node.ELEMENT_NODE:
         flag = (keyVal == last_modify.getAttribute('keyVal')) and (tagName == last_modify.getAttribute('tagName')) and (keyAttr == last_modify.getAttribute('keyAttr'))
-    doc = manipulate.ownerDocument
     if not flag:
         modify = doc.createElement('modify')
         modify.setAttribute('tagName',tagName)
