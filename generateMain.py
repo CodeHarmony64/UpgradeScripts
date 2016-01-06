@@ -73,7 +73,7 @@ def checkForChildNodeChange(manipulate_node,source_parent_node,dest_parent_node,
             elif dest_parent_node.parentNode.nodeType == Node.ELEMENT_NODE and dest_parent_node.parentNode.hasAttribute('id'):
                 insertThisNode(manipulate_node,dest_parent_node.parentNode)
             else:
-                print '\n#WARNING : failed to call InsertThisNode FAILED FOR : '+printNode(dest_parent_node)+'  Could not find any parent with id'
+                print '\n#WARNING 3: failed to call InsertThisNode FAILED FOR : '+printNode(dest_parent_node)+'  Could not find any parent with id'
             return
 
     for source_node in source_child_node_list:
@@ -105,7 +105,7 @@ def insertThisNode(manipulate_node,insert_node): #insert node MUST have an ID
             if insert_node.parentNode.parentNode.nodeType == Node.ELEMENT_NODE and insert_node.parentNode.parentNode.hasAttribute('id'):
                 insertThisNode(manipulate_node,insert_node.parentNode.parentNode)
             else:
-                print '\n#WARNING : InsertThisNode FAILED FOR : '+printNode(insert_node)
+                print '\n#WARNING 1: InsertThisNode FAILED FOR : '+printNode(insert_node)
     else:#find out the next sibling and use position = 'before', handle case where next sibling doesn't have id
         next_sibling = findNextSiblingWithId(insert_node)
         if next_sibling:
@@ -115,7 +115,7 @@ def insertThisNode(manipulate_node,insert_node): #insert node MUST have an ID
         elif insert_node.parentNode.parentNode.nodeType == Node.ELEMENT_NODE and insert_node.parentNode.parentNode.hasAttribute('id'):
             insertThisNode(manipulate_node,insert_node.parentNode.parentNode)
         else:
-            print '\n#WARNING : InsertThisNode FAILED FOR : '+printNode(insert_node)
+            print '\n#WARNING 2: InsertThisNode FAILED FOR : '+printNode(insert_node)
     return
 
 
@@ -130,8 +130,9 @@ def matchAndEliminateNode(to_visit,source_node_list,dest_node_list):
         for source_node in source_node_list:
             remove_node_flag = 0
             if (dest_node.nodeName == source_node.nodeName) and ( (source_node.hasAttribute('id') and dest_node.hasAttribute('id') and source_node.getAttribute("id") == dest_node.getAttribute("id")) or set(source_node.attributes.items()) == set(dest_node.attributes.items())):
-                visit_node = (source_node,dest_node)
-                to_visit.insert(0,visit_node)
+                if dest_node.hasAttribute('id') or source_node.hasChildNodes or dest_node.hasChildNodes:
+                    visit_node = (source_node,dest_node)
+                    to_visit.insert(0,visit_node)
                 temp_dest_list.append(dest_node)
                 temp_source_list.append(source_node)
 
@@ -153,7 +154,7 @@ def modifiedDFS(to_visit,manipulate_node,meta_registry_node):
     while(to_visit):
         if var.debug_flag >= DebugFlag.FINER: print '\nto_visit[]: ',to_visit
         source_parent_node,dest_parent_node = to_visit.pop(0)
-        if var.debug_flag >= DebugFlag.FINER: print 'Now Visiting: ' + dest_parent_node.nodeName + ' id:' + dest_parent_node.getAttribute('id')
+        if var.debug_flag >= DebugFlag.FINER: print 'Now Visiting: ' + printNode(dest_parent_node)
         source_child_node_list = copy.copy(source_parent_node.childNodes)
         dest_child_node_list = copy.copy(dest_parent_node.childNodes)
         source_child_node_list.reverse()
