@@ -3,7 +3,7 @@
 import sys,os,os.path,traceback
 from xml.dom.minidom import *
 import copy,fnmatch
-import string
+import string,var
 
 class DebugFlag:
     FINE = 1
@@ -59,13 +59,23 @@ def findSameLevelChildWithId(node,ref_node_list):
     return None
 
 
-def findNextSiblingWithId(target_node):
+def findNextSiblingWithId(target_node):#it should ignore the NON Element Node but very first Element node should be returned having id shouldn't matter or we can return none in case next sibling is non id
     node = target_node
     while(node.nextSibling):
         node = node.nextSibling
-        if node.nodeType == Node.ELEMENT_NODE and node.hasAttribute('id'): return node
+        if node.nodeType == Node.ELEMENT_NODE:
+            if node.hasAttribute('id'):
+                return node
+            return None
     return None
 
+def getLastChild(node): #Return the last element child of any node
+    last_child = node.lastChild
+    while last_child.previousSibling:
+        if last_child.nodeType == Node.ELEMENT_NODE:
+            return last_child
+        last_child = last_child.previousSibling
+    return None
 
 def cleanDOM(root):
     if root:
@@ -82,13 +92,13 @@ def addCommentNode(root,data):
     doc = root.ownerDocument
     #root.appendChild(doc.createComment(data))
 
-def addNodeIdsToSet(id_set,node):
+def addNodeIdsToSet(node):
     if not node or node.nodeType != Node.ELEMENT_NODE:
         return
     if node.hasAttribute('id'):
-        id_set.add(node.getAttribute('id'))
+        var.id_set.add(node.getAttribute('id'))
     for nod in node.childNodes:
-        addNodeIdsToSet(id_set,nod)
+        addNodeIdsToSet(nod)
 
 def getManipulateUpgradeMetaNode(path):
     location,file_name = os.path.split(path)
@@ -148,16 +158,15 @@ def generateAttributeScript(manipulate, operation, tagName, keyAttr, keyVal, nam
     modify.appendChild(attribute)
     return
 
-def generateInsertNodeScript(file_name,manipulate,reference_position,reference_tag_name,reference_key_attr,reference_key_val,
-                             manipulate_component_lib,target_component_name,target_key_attr,target_key_val):
-    path = file_name
+def generateInsertNodeScript(manipulate,reference_position,ref_node,target_node):
+    path = var.curr_dest_file
     doc = manipulate.ownerDocument
-    generaterRemoveNodeScript(manipulate,target_component_name,target_key_attr,target_key_val)
+    generaterRemoveNodeScript(manipulate,target_node)
     insert = doc.createElement('insert')
     insert.setAttribute('position',reference_position)
-    insert.setAttribute('tagName',reference_tag_name)
-    insert.setAttribute('keyAttr',reference_key_attr)
-    insert.setAttribute('keyVal',reference_key_val)
+    insert.setAttribute('tagName',ref_node.nodeName)
+    insert.setAttribute('keyAttr','id')
+    insert.setAttribute('keyVal',ref_node.getAttribute('id'))
     manipulate.appendChild(insert)
     location,file_name = os.path.split(path)
     file_name,extenstion = os.path.splitext(file_name)
@@ -166,65 +175,72 @@ def generateInsertNodeScript(file_name,manipulate,reference_position,reference_t
     component = doc.createElement('component')
     component.setAttribute('fromPath','componentLib/')#Put in comments componentLib is hardcoded
     component.setAttribute('fileName',file_name+'.xml')
-    component.setAttribute('componentName',target_component_name)
-    component.setAttribute('keyAttr',target_key_attr)
-    component.setAttribute('keyVal',target_key_val)
+    component.setAttribute('componentName',target_node.nodeName)
+    component.setAttribute('keyAttr','id')
+    component.setAttribute('keyVal',target_node.getAttribute('id'))
     insert.appendChild(component)
+    addNodeIdsToSet(target_node)
+    var.component_lib_file_root.appendChild(copy.deepcopy(target_node))
 
-def generaterRemoveNodeScript(manipulate_node, tagName, keyAttr, keyVal):
+
+def generaterRemoveNodeScript(manipulate_node, remove_node):
     doc = manipulate_node.ownerDocument
     remove = doc.createElement('remove')
-    remove.setAttribute('tagName',tagName)
-    remove.setAttribute('keyAttr',keyAttr)
-    remove.setAttribute('keyVal',keyVal)
+    remove.setAttribute('tagName', remove_node.nodeName)
+    remove.setAttribute('keyAttr','id')
+    remove.setAttribute('keyVal', remove_node.getAttribute('id'))
     manipulate_node.appendChild(remove)
     return
 
-def writeScriptsAndModifyRegistry(script_gen_path,curr_dest_file,upgrade_meta_doc,component_lib_file_doc,meta_registry_node):
-    file_name = os.path.basename(curr_dest_file)
-    file_name,extn = os.path.splitext(file_name)
-    index = string.find(file_name,'_Layout')
-    file_name = file_name[:index]
-    upgrade_meta_file_name = 'UpgradeMeta_'+file_name+'.xml'
-    os.chdir(script_gen_path)
-    upgrade_meta_file = open(upgrade_meta_file_name,'w+')
-    upgrade_meta_file.write(upgrade_meta_doc.toprettyxml(encoding='UTF-8'))
-    upgrade_meta_file.close()
-    os.chdir(os.path.join(script_gen_path,'componentLib'))
-    component_lib_file = open(file_name+'.xml','w+')
-    component_lib_file.write(component_lib_file_doc.toprettyxml(encoding='UTF-8'))
-    component_lib_file.close()
-    meta_node = meta_registry_node.ownerDocument.createElement('upgradeMeta')
-    meta_node.setAttribute('path',upgrade_meta_file_name)
-    meta_registry_node.appendChild(meta_node)
+def writeScriptsAndModifyRegistry(manipulate_node,meta_registry_node):
+    if manipulate_node.hasChildNodes():
+        upgrade_meta_doc = manipulate_node.ownerDocument
+        file_name = os.path.basename(var.curr_dest_file)
+        file_name,extn = os.path.splitext(file_name)
+        index = string.find(file_name,'_Layout')
+        file_name = file_name[:index]
+        upgrade_meta_file_name = 'UpgradeMeta_'+file_name+'.xml'
+        os.chdir(var.script_gen_path)
+        upgrade_meta_file = open(upgrade_meta_file_name,'w+')
+        upgrade_meta_file.write(upgrade_meta_doc.toprettyxml(encoding='UTF-8'))
+        upgrade_meta_file.close()
+        if var.component_lib_file_root.hasChildNodes():
+            component_lib_file_doc = var.component_lib_file_root.ownerDocument
+            os.chdir(os.path.join(var.script_gen_path, 'componentLib'))
+            component_lib_file = open(file_name+'.xml','w+')
+            component_lib_file.write(component_lib_file_doc.toprettyxml(encoding='UTF-8'))
+            component_lib_file.close()
+        meta_node = meta_registry_node.ownerDocument.createElement('upgradeMeta')
+        meta_node.setAttribute('path',upgrade_meta_file_name)
+        meta_registry_node.appendChild(meta_node)
 
 
-def prepareFileList(source_mds_path,dest_mds_path,relative_recur_path,source_files,dest_files,debug_flag):
-    source_path = os.path.join(source_mds_path,relative_recur_path)
-    dest_path = os.path.join(dest_mds_path,relative_recur_path)
-    if debug_flag >= DebugFlag.FINER: print 'Looking for source files in : ',source_path,'\nLooking for Destination files in : ',dest_path
-    if not (os.access(os.path.join(source_mds_path,relative_recur_path),os.R_OK) and os.access(os.path.join(dest_mds_path,relative_recur_path),os.R_OK)):
+def prepareFileList():
+    source_path = os.path.join(var.source_mds_path, var.relative_recur_path)
+    dest_path = os.path.join(var.dest_mds_path, var.relative_recur_path)
+    if var.debug_flag >= DebugFlag.FINER: print 'Looking for source files in : ',source_path, '\nLooking for Destination files in : ',dest_path
+    if not (os.access(os.path.join(var.source_mds_path, var.relative_recur_path), os.R_OK) and os.access(os.path.join(var.dest_mds_path, var.relative_recur_path), os.R_OK)):
         print('Wrong path given or path not accessible.')
         exitScript(6)
 
-    for dirpath,dirnames,filenames in os.walk(os.path.join(source_mds_path,relative_recur_path)):
+    for dirpath,dirnames,filenames in os.walk(os.path.join(var.source_mds_path, var.relative_recur_path)):
         for filename in fnmatch.filter(filenames,'*.jsff'):
-            source_files.append(os.path.join(dirpath,filename))
-    for dirpath,dirnames,filenames in os.walk(os.path.join(dest_mds_path,relative_recur_path)):
+            var.source_files.append(os.path.join(dirpath, filename))
+    for dirpath,dirnames,filenames in os.walk(os.path.join(var.dest_mds_path, var.relative_recur_path)):
         for filename in fnmatch.filter(filenames,'*.jsff'):
-            dest_files.append(os.path.join(dirpath,filename))
+            var.dest_files.append(os.path.join(dirpath, filename))
 
-    source_files.sort()
-    dest_files.sort()
+    var.source_files.sort()
+    var.dest_files.sort()
     source_set = set()
     dest_set = set()
     print('***********Source Files to be processed*********')
-    for source_file in source_files:
-        print(source_file+'\t\t'+'relative path:\t'+relativePath(source_file,source_mds_path))
+    for source_file in var.source_files:
+        print(source_file +'\t\t' +'relative path:\t' + relativePath(source_file, var.source_mds_path))
         source_set.add(os.path.basename(source_file))
     print('\n**********Destination Files to be processed***********')
-    for dest_file in dest_files:
-        print(dest_file+'\t\t'+'relative path:\t'+relativePath(dest_file,dest_mds_path))
+    for dest_file in var.dest_files:
+        print(dest_file +'\t\t' +'relative path:\t' + relativePath(dest_file, var.dest_mds_path))
         dest_set.add(os.path.basename(dest_file))
 
     if not (source_set == dest_set):
