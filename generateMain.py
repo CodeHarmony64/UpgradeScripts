@@ -65,7 +65,7 @@ def checkForChildNodeChange(manipulate_node,source_parent_node,dest_parent_node,
     #need to be extra careful here as we are remove and re-inserting means always should take the dest elements
     for node in source_child_node_list + dest_child_node_list:
         if not node.hasAttribute('id'):
-            comment =  '\nComponent Without ID  Added or  Removed: '+printNode(node)+'\nElement without id : Experimental Feature. Trying to remove and re-insert Parent Not Checking Further'+WARN
+            comment =  '\nComponent Without ID  Added or  Removed: '+printNode(node)+'\nExperimental Feature. Trying to remove and re-insert Parent:'+printNode(node.parentNode,0)+' Not Checking Further'
             #add code to print all the removed nodes as well all the added nodes which we aren't showing.
             print comment
             if dest_parent_node.nodeType == Node.ELEMENT_NODE and dest_parent_node.hasAttribute('id'):
@@ -84,6 +84,8 @@ def checkForChildNodeChange(manipulate_node,source_parent_node,dest_parent_node,
             generaterRemoveNodeScript(manipulate_node,source_node)
 
     for dest_node in dest_child_node_list:#IMPORTANT dest_child_node_list here is the REVERSED version of childNodes after eliminating common nodes. If we change the order the whole script will fail.
+       comment = 'Component Added : '+printNode(dest_node)
+       if var.debug_flag >= DebugFlag.FINE: print comment
        insertThisNode(manipulate_node,dest_node)
     if var.debug_flag >= DebugFlag.FINER: print 'checkForChildNodeChange():Exit ' + printNode(source_parent_node), '\n'
 
