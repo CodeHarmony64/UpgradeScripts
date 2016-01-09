@@ -23,10 +23,8 @@ def appendList(st,lst):#Adds all the items of the list to an existing set
     return
 
 def printNodeList(message,node_list):# prints message + all the nodes in nodeList
-    print message,
     for node in node_list:
-        print printNode(node,0)+'\t\t\t',
-    print(' ')
+        print '\t\t'+message + printNode(node)
 
 def printNode(node,print_parent=1):
     comment = ''

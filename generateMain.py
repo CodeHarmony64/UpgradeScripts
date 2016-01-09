@@ -20,7 +20,7 @@ def checkForAttributeChange(manipulate_node,source_node,dest_node):
         if var.debug_flag >= DebugFlag.FINER:
             print printNode(source_node)+' : No Attribute Changed'
             print'checkForAttributeChange():Exit '+printNode(source_node)+'\n'
-            return
+        return  #This return should be out of the if condition
     if (source_node.hasAttribute('id') and source_node.getAttribute('id') in var.id_set) or (source_node.parentNode.nodeType == Node.ELEMENT_NODE and source_node.parentNode.hasAttribute('id') and source_node.parentNode.getAttribute('id') in var.id_set):
         if var.debug_flag >= DebugFlag.FINE:
             print 'Not required script for Attribute Change in '+printNode(source_node)+' this or parent node is getting inserted'
@@ -57,6 +57,9 @@ def checkForAttributeChange(manipulate_node,source_node,dest_node):
 def checkForChildNodeChange(manipulate_node,source_parent_node,dest_parent_node,source_child_node_list,dest_child_node_list):
     global WARN
     if var.debug_flag >= DebugFlag.FINER: print '\ncheckForChildNodeChange():Enter ' + printNode(source_parent_node)
+    if not(source_child_node_list or dest_child_node_list):
+        if var.debug_flag >= DebugFlag.FINER: print 'No Child Node Added or Removed'
+        return
     if (source_parent_node.hasAttribute('id') and source_parent_node.getAttribute('id') in var.id_set) or (source_parent_node.parentNode.nodeType == Node.ELEMENT_NODE and source_parent_node.parentNode.hasAttribute('id') and source_parent_node.parentNode.getAttribute('id') in var.id_set):
         if var.debug_flag >= DebugFlag.FINE:
             print 'Not required script for Node Change in '+printNode(source_parent_node)+' this or parent node is getting inserted'
@@ -73,19 +76,21 @@ def checkForChildNodeChange(manipulate_node,source_parent_node,dest_parent_node,
             elif dest_parent_node.parentNode.nodeType == Node.ELEMENT_NODE and dest_parent_node.parentNode.hasAttribute('id'):
                 insertThisNode(manipulate_node,dest_parent_node.parentNode)
             else:
-                print '\n#WARNING 3: failed to call InsertThisNode FAILED FOR : '+printNode(dest_parent_node)+'  Could not find any parent with id'
+                print '##############################################################################################################################################'
+                print '########### WARNING 3: failed to call InsertThisNode FAILED FOR : '+printNode(dest_parent_node)+'  Could not find any parent with id'
+                print '##############################################################################################################################################'
             return
 
     for source_node in source_child_node_list:
         if source_node.hasAttribute('id'):
-            comment = 'Component removed: '+printNode(source_node)
-            if var.debug_flag >= DebugFlag.FINE: print comment
-            addCommentNode(manipulate_node,comment)
+            #comment = 'Component removed: '+printNode(source_node)
+            #if var.debug_flag >= DebugFlag.FINE: print comment
+            #addCommentNode(manipulate_node,comment)
             generaterRemoveNodeScript(manipulate_node,source_node)
 
     for dest_node in dest_child_node_list:#IMPORTANT dest_child_node_list here is the REVERSED version of childNodes after eliminating common nodes. If we change the order the whole script will fail.
-       comment = 'Component Added : '+printNode(dest_node)
-       if var.debug_flag >= DebugFlag.FINE: print comment
+       #comment = 'Component Added : '+printNode(dest_node)
+       #if var.debug_flag >= DebugFlag.FINE: print comment
        insertThisNode(manipulate_node,dest_node)
     if var.debug_flag >= DebugFlag.FINER: print 'checkForChildNodeChange():Exit ' + printNode(source_parent_node), '\n'
 
@@ -107,7 +112,9 @@ def insertThisNode(manipulate_node,insert_node): #insert node MUST have an ID
             if insert_node.parentNode.parentNode.nodeType == Node.ELEMENT_NODE and insert_node.parentNode.parentNode.hasAttribute('id'):
                 insertThisNode(manipulate_node,insert_node.parentNode.parentNode)
             else:
-                print '\n#WARNING 1: InsertThisNode FAILED FOR : '+printNode(insert_node)
+                print '##############################################################################################################################################'
+                print '############ WARNING 1: InsertThisNode FAILED FOR : '+printNode(insert_node) +'  ##################'
+                print '##############################################################################################################################################'
     else:#find out the next sibling and use position = 'before', handle case where next sibling doesn't have id
         next_sibling = findNextSiblingWithId(insert_node)
         if next_sibling:
@@ -117,7 +124,9 @@ def insertThisNode(manipulate_node,insert_node): #insert node MUST have an ID
         elif insert_node.parentNode.parentNode.nodeType == Node.ELEMENT_NODE and insert_node.parentNode.parentNode.hasAttribute('id'):
             insertThisNode(manipulate_node,insert_node.parentNode.parentNode)
         else:
-            print '\n#WARNING 2: InsertThisNode FAILED FOR : '+printNode(insert_node)
+            print '##############################################################################################################################################'
+            print '############## WARNING 2: InsertThisNode FAILED FOR : '+printNode(insert_node)+'    ############'
+            print '##############################################################################################################################################'
     return
 
 
@@ -126,25 +135,35 @@ def matchAndEliminateNode(to_visit,source_node_list,dest_node_list):
     temp_source_list = []
     if var.debug_flag >= DebugFlag.FINER:
         print '\nmatchAndEliminate():Enter'
-        printNodeList('source node list: ',source_node_list)
-        printNodeList('destination node list: ',dest_node_list)
+        print 'Before Elimination:'
+        print 'Source Node List:'
+        printNodeList('',source_node_list)
+        print '\nDestination Node List:'
+        printNodeList('',dest_node_list)
     for dest_node in dest_node_list:
         for source_node in source_node_list:
             remove_node_flag = 0
             if (dest_node.nodeName == source_node.nodeName) and ( (source_node.hasAttribute('id') and dest_node.hasAttribute('id') and source_node.getAttribute("id") == dest_node.getAttribute("id")) or set(source_node.attributes.items()) == set(dest_node.attributes.items())):
-                if dest_node.hasAttribute('id') or source_node.hasChildNodes or dest_node.hasChildNodes:
+                if dest_node.hasAttribute('id') or source_node.hasChildNodes() or dest_node.hasChildNodes():
                     visit_node = (source_node,dest_node)
                     to_visit.insert(0,visit_node)
                 temp_dest_list.append(dest_node)
                 temp_source_list.append(source_node)
+    try:
+        for source_node in temp_source_list: source_node_list.remove(source_node)
+        for dest_node in temp_dest_list: dest_node_list.remove(dest_node)
+    except ValueError:
+        print '################################################################################################'
+        print '################ Error: Two Child with same set of attributes or With same ID ##################'
+        print traceback.print_exc()
+        print '################################################################################################'
 
-    for source_node in temp_source_list: source_node_list.remove(source_node)
-    for dest_node in temp_dest_list: dest_node_list.remove(dest_node)
+    if source_node_list:
+        printNodeList('Component Removed:',source_node_list)
+    if dest_node_list:
+        printNodeList('Component Added: ',dest_node_list)
     if var.debug_flag >= DebugFlag.FINER:
-        print 'After Elimination:'
-        printNodeList('source node list: ',source_node_list)
-        printNodeList('destination node list: ',dest_node_list)
-        print 'matchAndEliminate():Exit\n'
+        print '\nmatchAndEliminate():Exit'
     return
 
 
