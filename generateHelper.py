@@ -111,7 +111,7 @@ def getManipulateUpgradeMetaNode(path):
     manipulate = upgradeMeta.createElement("manipulate")
     upgradeMDS.appendChild(export)
     upgradeMDS.appendChild(manipulate)
-    manipulate.setAttribute('filename',file_name+'_*Layout*.jsff')
+    manipulate.setAttribute('fileName',file_name+'_*Layout*.jsff')
     manipulate.setAttribute('type','update')
     manipulate.setAttribute('location',location)
     export.setAttribute('doc',os.path.join(location,'*'))
