@@ -100,7 +100,9 @@ def addNodeIdsToSet(node):
 
 def getManipulateUpgradeMetaNode(path):
     location,file_name = os.path.split(path)
-    file_name,extenstion = os.path.splitext(file_name)
+    location = os.path.join(location,'')
+    index = string.find(file_name,'_Layout')
+    file_name = file_name[:index]
     upgradeMeta = Document()
     upgradeMDS = upgradeMeta.createElement('upgradeMDS')
     upgradeMeta.appendChild(upgradeMDS)
@@ -171,7 +173,7 @@ def generateInsertNodeScript(manipulate,reference_position,ref_node,target_node)
     index = string.find(file_name,'_Layout')
     file_name = file_name[:index]
     component = doc.createElement('component')
-    component.setAttribute('fromPath','componentLib/')#Put in comments componentLib is hardcoded
+    component.setAttribute('fromPath',os.path.join('componentLib',''))#Put in comments componentLib is hardcoded
     component.setAttribute('fileName',file_name+'.xml')
     component.setAttribute('componentName',target_node.nodeName)
     component.setAttribute('keyAttr','id')

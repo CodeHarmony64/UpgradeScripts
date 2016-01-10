@@ -21,6 +21,12 @@ def checkForAttributeChange(manipulate_node,source_node,dest_node):
             print printNode(source_node)+' : No Attribute Changed'
             print'checkForAttributeChange():Exit '+printNode(source_node)+'\n'
         return  #This return should be out of the if condition
+    if source_node.nodeName == 'jsp:root':
+        if var.debug_flag >= DebugFlag.FINE:
+            print '##############################################################################################################################################'
+            print '############################  There are some attribute changes in jsp:root But Not Generating Script for it ##################################'
+            print '##############################################################################################################################################'
+        return
     if (source_node.hasAttribute('id') and source_node.getAttribute('id') in var.id_set) or (source_node.parentNode.nodeType == Node.ELEMENT_NODE and source_node.parentNode.hasAttribute('id') and source_node.parentNode.getAttribute('id') in var.id_set):
         if var.debug_flag >= DebugFlag.FINE:
             print 'Not required script for Attribute Change in '+printNode(source_node)+' this or parent node is getting inserted'
