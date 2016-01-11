@@ -136,38 +136,44 @@ def getUpgradeMetaRegistryNode(description = "ActivityManagementAutomated"):
     upg_meta_registry.appendChild(upgrade_meta_list)
     return upgrade_meta_list
 
-def generateAttributeScript(manipulate, operation, tagName, keyAttr, keyVal, name, value):
-    last_modify = manipulate.lastChild
+def generateAttributeScript(operation,name,node):
+    last_modify = var.manipulate_node.lastChild
     flag = 0
-    doc = manipulate.ownerDocument
+    doc = var.manipulate_node.ownerDocument
     if last_modify and last_modify.nodeType == Node.ELEMENT_NODE:
-        flag = (keyVal == last_modify.getAttribute('keyVal')) and (tagName == last_modify.getAttribute('tagName')) and (keyAttr == last_modify.getAttribute('keyAttr'))
-    if not flag:
+        flag = node.nodeName == last_modify.getAttribute('tagName') and node.hasAttribute('id') and node.getAttribute('id') == last_modify.getAttribute('keyVal')
+    if node.nodeName == 'jsp:root':
         modify = doc.createElement('modify')
-        modify.setAttribute('tagName',tagName)
-        modify.setAttribute('keyAttr',keyAttr)
-        modify.setAttribute('keyVal',keyVal)
-        manipulate.appendChild(modify)
+        modify.setAttribute('tagName',node.nodeName)
+        modify.setAttribute('keyAttr','version')
+        modify.setAttribute('keyVal',node.getAttribute('version'))
+        var.manipulate_node.appendChild(modify)
+    elif not flag:
+        modify = doc.createElement('modify')
+        modify.setAttribute('tagName',node.nodeName)
+        modify.setAttribute('keyAttr','id')
+        modify.setAttribute('keyVal',node.getAttribute('id'))
+        var.manipulate_node.appendChild(modify)
     else:
         modify = last_modify
     attribute = doc.createElement('attribute')
     attribute.setAttribute('operation',operation)
     attribute.setAttribute('name',name)
     if operation == 'insert':
-        attribute.setAttribute('value',value)
+        attribute.setAttribute('value',node.getAttribute(name))
     modify.appendChild(attribute)
     return
 
-def generateInsertNodeScript(manipulate,reference_position,ref_node,target_node):
+def generateInsertNodeScript(reference_position,ref_node,target_node):
     path = var.curr_dest_file
-    doc = manipulate.ownerDocument
-    generaterRemoveNodeScript(manipulate,target_node)
+    doc = var.manipulate_node.ownerDocument
+    generaterRemoveNodeScript(target_node)
     insert = doc.createElement('insert')
     insert.setAttribute('position',reference_position)
     insert.setAttribute('tagName',ref_node.nodeName)
     insert.setAttribute('keyAttr','id')
     insert.setAttribute('keyVal',ref_node.getAttribute('id'))
-    manipulate.appendChild(insert)
+    var.manipulate_node.appendChild(insert)
     location,file_name = os.path.split(path)
     file_name,extenstion = os.path.splitext(file_name)
     index = string.find(file_name,'_Layout')
@@ -183,18 +189,19 @@ def generateInsertNodeScript(manipulate,reference_position,ref_node,target_node)
     var.component_lib_file_root.appendChild(copy.deepcopy(target_node))
 
 
-def generaterRemoveNodeScript(manipulate_node, remove_node):
-    doc = manipulate_node.ownerDocument
+def generaterRemoveNodeScript(remove_node):
+    doc = var.manipulate_node.ownerDocument
     remove = doc.createElement('remove')
     remove.setAttribute('tagName', remove_node.nodeName)
     remove.setAttribute('keyAttr','id')
     remove.setAttribute('keyVal', remove_node.getAttribute('id'))
-    manipulate_node.appendChild(remove)
+    var.manipulate_node.appendChild(remove)
     return
 
-def writeScriptsAndModifyRegistry(manipulate_node,meta_registry_node):
-    if manipulate_node.hasChildNodes():
-        upgrade_meta_doc = manipulate_node.ownerDocument
+def writeScriptsAndModifyRegistry(meta_registry_node):
+    if var.manipulate_node.hasChildNodes():
+        cleanUpgradeMeta()
+        upgrade_meta_doc = var.manipulate_node.ownerDocument
         file_name = os.path.basename(var.curr_dest_file)
         file_name,extn = os.path.splitext(file_name)
         index = string.find(file_name,'_Layout')
@@ -251,3 +258,27 @@ def prepareFileList():
 def cleanUpScript():
     #This function will try to clean up un-necessary generated script eg when insert components makes the other internal change script redundant
     print("Future Clean Up Script")
+
+def findFirstNonRemoveManipulateChild():
+    for node in var.manipulate_node.childNodes:
+        if node.nodeName != 'remove':
+            return node
+    return None
+
+def cleanUpgradeMeta():
+    before_node = findFirstNonRemoveManipulateChild()
+    if not before_node:
+        return
+    remove_node_list = []
+    for node in var.manipulate_node.childNodes:
+        if node.nodeName == 'remove':
+            remove_node_list.append(node)
+    for node in remove_node_list:
+        var.manipulate_node.insertBefore(node,before_node)
+    return
+
+
+
+
+
+
