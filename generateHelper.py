@@ -206,7 +206,7 @@ def writeScriptsAndModifyRegistry(meta_registry_node):
         file_name,extn = os.path.splitext(file_name)
         index = string.find(file_name,'_Layout')
         file_name = file_name[:index]
-        upgrade_meta_file_name = 'UpgradeMeta_'+file_name+'.xml'
+        upgrade_meta_file_name = 'upgradeMeta_'+file_name+'.xml'
         os.chdir(var.script_gen_path)
         upgrade_meta_file = open(upgrade_meta_file_name,'w+')
         upgrade_meta_file.write(upgrade_meta_doc.toprettyxml(encoding='UTF-8'))
