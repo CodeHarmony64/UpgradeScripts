@@ -24,10 +24,9 @@ def appendList(st,lst):#Adds all the items of the list to an existing set
 
 def printNodeList(message,node_list):# prints message + all the nodes in nodeList
     for node in node_list:
-        print '\t\t'+message + printNode(node)
+        print message + printNode(node)
 
 def printNode(node,print_parent=1):
-    comment = ''
     if not node:
         return 'None'
     elif node.nodeType != Node.ELEMENT_NODE:
@@ -200,7 +199,6 @@ def generaterRemoveNodeScript(remove_node):
 
 def writeScriptsAndModifyRegistry(meta_registry_node):
     if var.manipulate_node.hasChildNodes():
-        cleanUpgradeMeta()
         upgrade_meta_doc = var.manipulate_node.ownerDocument
         file_name = os.path.basename(var.curr_dest_file)
         file_name,extn = os.path.splitext(file_name)
@@ -265,7 +263,7 @@ def findFirstNonRemoveManipulateChild():
             return node
     return None
 
-def cleanUpgradeMeta():
+def cleanUpgradeMeta():#Not using this as it further causes issues
     before_node = findFirstNonRemoveManipulateChild()
     if not before_node:
         return

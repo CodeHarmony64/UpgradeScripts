@@ -7,7 +7,6 @@ import var
 
 
 class DebugFlag:
-    LOG = 0
     FINE = 1
     FINER = 2
     FINEST = 3
@@ -15,12 +14,13 @@ class DebugFlag:
 WARN = '\n##### Warning: NOT GENERATING SCRIPT FOR ABOVE, NOT SUPPORTED  #####\n'
 
 def checkForAttributeChange(source_node,dest_node):
+    """Checks for attribute changes in respective nodes"""
     if var.debug_flag >= DebugFlag.FINER: print'\ncheckForAttributeChange():Enter ' + printNode(source_node)
     if set(source_node.attributes.items()) == set(dest_node.attributes.items()): #Check if both nodes have same set of key-value pairs then no need to compare or generate scritps
         if var.debug_flag >= DebugFlag.FINER:
             print printNode(source_node)+' : No Attribute Changed'
             print'checkForAttributeChange():Exit '+printNode(source_node)+'\n'
-        return  #This return should be out of the if condition
+        return
     if (source_node.hasAttribute('id') and source_node.getAttribute('id') in var.id_set) or (source_node.parentNode.nodeType == Node.ELEMENT_NODE and source_node.parentNode.hasAttribute('id') and source_node.parentNode.getAttribute('id') in var.id_set):
         if var.debug_flag >= DebugFlag.FINE:
             print 'Not required script for Attribute Change in '+printNode(source_node)+' this or parent node is getting inserted'
@@ -35,27 +35,20 @@ def checkForAttributeChange(source_node,dest_node):
             else:
                 comment = 'Attribute Updated: '+attr+' '+printNode(source_node)+' modified from '+source_node.getAttribute(attr)+' to '+dest_node.getAttribute(attr)
                 if var.debug_flag >= DebugFlag.FINE: print(comment)
-                #addCommentNode(manipulate_node,comment)
                 generateAttributeScript('insert',attr,dest_node)
         elif source_node.hasAttribute(attr):
             comment = 'Attribute Removed: '+attr+' '+printNode(source_node)
             if var.debug_flag >= DebugFlag.FINE : print(comment)
-            #addCommentNode(manipulate_node,comment)
             generateAttributeScript('remove',attr,dest_node)
         else:
             comment =  'Attribute Added: '+attr+' '+printNode(dest_node)
             if var.debug_flag >= DebugFlag.FINE : print(comment)
-            #addCommentNode(manipulate_node,comment)
             generateAttributeScript('insert',attr,dest_node)
-    #Future scope for development
-    # What if it reports that all the Attributes of a component has been changed? Don't you think it's just id that got changed? Can you handle this?
-    # why so many modify elements in scripts when all the attributes change of a single commponent could be inserted into one modify?
     if var.debug_flag >= DebugFlag.FINER: print'checkForAttributeChange():Exit ' + printNode(source_node) + '\n'
     return
 
 
 def checkForChildNodeChange(source_parent_node,dest_parent_node,source_child_node_list,dest_child_node_list):
-    global WARN
     if var.debug_flag >= DebugFlag.FINER: print '\ncheckForChildNodeChange():Enter ' + printNode(source_parent_node)
     if not(source_child_node_list or dest_child_node_list):
         if var.debug_flag >= DebugFlag.FINER: print 'No Child Node Added or Removed'
@@ -83,14 +76,11 @@ def checkForChildNodeChange(source_parent_node,dest_parent_node,source_child_nod
 
     for source_node in source_child_node_list:
         if source_node.hasAttribute('id'):
-            #comment = 'Component removed: '+printNode(source_node)
-            #if var.debug_flag >= DebugFlag.FINE: print comment
-            #addCommentNode(manipulate_node,comment)
+            if var.debug_flag >= DebugFlag.FINE: print '\tGenerating script for removed component: '+printNode(source_node)
             generaterRemoveNodeScript(source_node)
 
     for dest_node in dest_child_node_list:#IMPORTANT dest_child_node_list here is the REVERSED version of childNodes after eliminating common nodes. If we change the order the whole script will fail.
-       #comment = 'Component Added : '+printNode(dest_node)
-       #if var.debug_flag >= DebugFlag.FINE: print comment
+       if var.debug_flag >= DebugFlag.FINE: print '\tGenerating script for component added: '+printNode(dest_node)
        insertThisNode(dest_node)
     if var.debug_flag >= DebugFlag.FINER: print 'checkForChildNodeChange():Exit ' + printNode(source_parent_node), '\n'
 
@@ -142,7 +132,6 @@ def matchAndEliminateNode(to_visit,source_node_list,dest_node_list):
         printNodeList('',dest_node_list)
     for dest_node in dest_node_list:
         for source_node in source_node_list:
-            remove_node_flag = 0
             if (dest_node.nodeName == source_node.nodeName) and ( (source_node.hasAttribute('id') and dest_node.hasAttribute('id') and source_node.getAttribute("id") == dest_node.getAttribute("id")) or set(source_node.attributes.items()) == set(dest_node.attributes.items())):
                 if dest_node.hasAttribute('id') or source_node.hasChildNodes() or dest_node.hasChildNodes():
                     visit_node = (source_node,dest_node)
@@ -183,18 +172,6 @@ def modifiedDFS(to_visit,meta_registry_node):
         checkForAttributeChange(source_parent_node,dest_parent_node)
         matchAndEliminateNode(to_visit,source_child_node_list,dest_child_node_list)
         checkForChildNodeChange(source_parent_node,dest_parent_node,source_child_node_list,dest_child_node_list)
-#    doc = manipulate_node.ownerDocument
-#    component_doc = component_lib_file_root.ownerDocument
-#    file_name = os.path.basename(curr_dest_file)
-#    index = string.find(file_name,'_Layout')
-#    file_name = file_name[:index]
-#    print ('\n++++++++++++++++++++  WARNINGS : '+file_name+' +++++++++++++++++++++++')
-#    for warn in warnings:
-#        print warn
-#    print("\n\n+++++++++++++++++Upgrade Script++++++++++++++++++++")
-#    print(doc.toprettyxml())
-#    print("\n+++++++++++++++++ComponentLib File++++++++++++++++++++")
-#    print(component_doc.toprettyxml())
 
     writeScriptsAndModifyRegistry(meta_registry_node)
     var.id_set.clear()
@@ -231,6 +208,8 @@ def initProcess():
     to_visit = []
     processAndValidateScriptParameters()
     meta_registry_node = getUpgradeMetaRegistryNode()
+    os.chdir(var.script_gen_path)
+    os.mkdir('componentLib')
     prepareFileList()
     for var.curr_source_file, var.curr_dest_file in zip(var.source_files, var.dest_files):
         if not os.path.basename(var.curr_source_file) == os.path.basename(var.curr_dest_file):
@@ -255,31 +234,3 @@ def initProcess():
     return
 
 initProcess()
-
-'''to do
-If Experimental Feature working fine then need to optimize checkChildNodeChange() Function as there is lot of redundancy
-2. push all the warnings into a single file along with those components
-3. unnecessary componentLib generation.
-
-debug level
-support for only id change
-check for possible duplicate id after insert
-try to validate xml
-
-at the moment c:set and jsp:root are the only contnious non-id elements in tree.
-
-Add below function for easy comparison of before and after upgrade script run
- def writeXml(path):
-	dom = parse(path)
-	fl = open('test.jsff','w+')
-	fl.write(dom.toxml(encoding='UTF-8'))
-	f1.close()
-Done:---
-4. creating upgradeMetaRegistry
-3. writing the generated scripts in newly created updatemeta and componentLib files
-In matchAndEliminateNode() Add support to check if a node without id has similar attributes using sets and subsets, even if I attribute defers we need to generate script for removing and re-inserting parent node
-clubbing the all attribute changes in one modify tag
-don't just insert, remove and re-insert
-
-
-'''
